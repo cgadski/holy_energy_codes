@@ -1,54 +1,66 @@
-# %%
 from string import Template
+from typing import Iterable, List, Tuple
 import ffmpeg
-import imgkit
+import cairosvg
+from pathlib import Path
 
-
-#%%
-code_template = Template(open("code_template.html", "r").read())
 
 def render_code(code: str):
-    fp = f"tmp/code_{code}.png"
-    imgkit.from_string(
-        code_template.substitute({"code": code}),
-        fp,
-        options={
-            "transparent": None,
-            "width": 500,
-            "height": 320,
-        },
+    code_template = Template(open("code_template.svg", "r").read())
+    tmp_dir = Path("tmp")
+    tmp_dir.mkdir(exist_ok=True)
+    out_path = tmp_dir / f"{code}.png"
+    cairosvg.svg2png(
+        bytestring=code_template.substitute({"code": code}), write_to=str(out_path)
     )
-    return fp
+    return out_path
 
-render_code("hello")
 
-# %%
-def put_code(stream, code: str):
-    overlay = ffmpeg.input(render_code(code))
-    return ffmpeg.overlay(
-        stream,
-        overlay 
+def run_overwriting(x, output: Path):
+    ffmpeg.run(ffmpeg.output(x, str(output)).overwrite_output())
+
+
+def collate_clips(frame_directory: str, transitions: List[int]) -> Iterable[Path]:
+    logo = ffmpeg.input(
+        f"resources/{frame_directory}/*.png",
+        pattern_type="glob",
+        framerate=25,
+    )
+    clips = [
+        ffmpeg.trim(logo, start_frame=a, end_frame=b)
+        if b is not None
+        else ffmpeg.trim(logo, start_frame=a)
+        for (a, b) in zip([0] + transitions, transitions + [None])
+    ]
+    for (idx, clip) in enumerate(clips):
+        tmp_dir = Path("tmp")
+        tmp_dir.mkdir(exist_ok=True)
+        path = tmp_dir / f"{frame_directory}_{idx}.webm"
+        if not path.exists():
+            run_overwriting(clip, path)
+        yield path
+
+
+def render_animation(clips: List[Path], code: str, path: Path):
+    code_overlay = render_code(code)
+    input_streams = [ffmpeg.input(str(path)) for path in clips]
+    run_overwriting(
+        ffmpeg.concat(
+            input_streams[0],
+            ffmpeg.overlay(
+                input_streams[1],
+                ffmpeg.input(code_overlay),
+            ),
+            input_streams[2],
+        ),
+        path,
     )
 
 
-def run(x):
-    ffmpeg.run(x.overwrite_output())
-
-# %%
-logo = ffmpeg.input("resources/frames/*.png", pattern_type="glob", framerate=25)
-start_frames = 102
-logo_before = ffmpeg.trim(logo, start_frame=0, end_frame=start_frames)
-logo_after = ffmpeg.trim(logo, start_frame=start_frames)
-ffmpeg.run(ffmpeg.output(logo_before, "output/before.webm").overwrite_output())
-ffmpeg.run(ffmpeg.output(logo_after, "output/after.webm").overwrite_output())
-logo_before = ffmpeg.input("output/before.webm")
-logo_after = ffmpeg.input("output/after.webm")
-
-
-# %%
-for code in open("codes", "r").readlines():
-    code = code.strip()
-    code_output = ffmpeg.concat(logo_before, put_code(logo_after, code))
-    run(code_output.output(f"output/{code}.webm", gifflags=None, offsetting=None).overwrite_output())
-
-# %%
+if __name__ == "__main__":
+    clips = list(collate_clips("german_frames", [150, 209]))
+    dir = Path("output/german")
+    dir.mkdir(exist_ok=True, parents=True)
+    for code in open("codes/german_codes", "r").readlines():
+        code = code.strip()
+        render_animation(clips, code, dir / f"{code}.webm")
