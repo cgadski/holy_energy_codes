@@ -35,9 +35,8 @@ def collate_clips(frame_directory: str, transitions: List[int]) -> Iterable[Path
     for (idx, clip) in enumerate(clips):
         tmp_dir = Path("tmp")
         tmp_dir.mkdir(exist_ok=True)
-        path = tmp_dir / f"{frame_directory}_{idx}.webm"
-        if not path.exists():
-            run_overwriting(clip, path)
+        path = tmp_dir / f"{frame_directory}_{idx}_%03d.png"
+        run_overwriting(clip, path)
         yield path
 
 
