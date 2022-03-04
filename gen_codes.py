@@ -58,9 +58,16 @@ def render_animation(clips: List[Path], code: str, path: Path):
 
 
 if __name__ == "__main__":
-    clips = list(collate_clips("german_frames", [150, 209]))
-    dir = Path("output/german")
+    # clips = list(collate_clips("german_frames", [150, 209]))
+    # dir = Path("output/german")
+    # dir.mkdir(exist_ok=True, parents=True)
+    # for code in open("codes/german_codes", "r").readlines():
+    #     code = code.strip().upper()
+    #     render_animation(clips, code, dir / f"{code}.webm")
+
+    clips = list(collate_clips("french_frames", [147, 210]))
+    dir = Path("output/french")
     dir.mkdir(exist_ok=True, parents=True)
-    for code in open("codes/german_codes", "r").readlines():
-        code = code.strip()
+    for code in open("codes/french_codes", "r").readlines():
+        code = code.strip().upper()
         render_animation(clips, code, dir / f"{code}.webm")
