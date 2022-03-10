@@ -68,5 +68,5 @@ if __name__ == "__main__":
     dir = Path("output/french")
     dir.mkdir(exist_ok=True, parents=True)
     for code in open("codes/french_codes", "r").readlines():
-        code = code.strip().upper()
+        code = code.strip()
         render_animation(clips, code, dir / f"{code}.webm")
